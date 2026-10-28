@@ -1,9 +1,23 @@
 @testable import SpritzAndBlitzServer
+import Foundation
 import Testing
 import Vapor
 import NIOSSL
 import FluentKit
 import FluentPostgresDriver
+import Configuration
+import SystemPackage
+
+actor Counter {
+    var current = 8080
+    
+    func getCount() -> Int {
+        let current = current
+        self.current += 1
+        return current
+    }
+}
+
 @TaskLocal var _application: Application?
 
 var app: Application {
@@ -14,34 +28,62 @@ var app: Application {
 var database: any Database {
     get throws { try #require(_database) }
 }
+let counter = Counter()
 struct AppTrait: TestTrait, SuiteTrait, TestScoping {
+    var isRecursive: Bool { true }
+    
     func provideScope(
         for test: Test, testCase: Test.Case?, performing function: @Sendable @concurrent () async throws -> Void
     ) async throws {
-        let app = try await Application(.testing)
+        guard !test.isSuite else { return try await function() }  // only per-test
+        let envPath = String(#filePath.split(separator: "/Tests/")[0]) + "/test.env"
+        let filePath = FilePath(envPath)
+        let app = try await Application(
+            .testing,
+            configReader: .init(
+                providers: [
+                    CommandLineArgumentsProvider(),
+                    EnvironmentVariablesProvider(
+                        environmentFilePath: filePath
+                    )
+                ]
+            )
+        )
+        
+        
+        let configReader = app.configReader
 
         let databases = Databases(threadPool: .singleton, on: .singletonMultiThreadedEventLoopGroup)
-        databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-            hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-            port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
-            username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-            password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-            database: Environment.get("DATABASE_NAME") ?? "vapor_database",
-            tls: .prefer(try .init(configuration: .clientDefault)))
-        ), as: .psql)
+        var dbConfig = SQLPostgresConfiguration(
+            hostname: configReader.string(forKey: "DATABASE_HOST")!,
+            port: configReader.int(forKey: "DATABASE_PORT")!,
+            username: configReader.string(forKey: "DATABASE_USERNAME")!,
+            password: configReader.string(forKey: "DATABASE_PASSWORD")!,
+            database: configReader.string(forKey: "DATABASE_NAME")!,
+            tls: .prefer(try .init(configuration: .clientDefault))
+        )
+        let schema = "test_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased())"
+        dbConfig.searchPath = [schema]
+        databases.use(.postgres(configuration: dbConfig),as: .psql)
+        
+        let sql = try #require(try databases.database() as? any SQLDatabase)
+        try await sql.raw("CREATE SCHEMA \(ident: schema)").run()
 
         do {
-            try await configure(app)
-            try await app.run()
-            try await $_database.withValue(databases.database(for: app)) {
+            try await configure(app, configuredDatabases: databases)
+            try await app.boot()
+//            app.serverConfiguration.port = await counter.getCount()
+//            try await app.run()
+            try await $_database.withValue(try databases.database()) {
                 try await $_application.withValue(app) {
                     try await function()
                 }
             }
-            try await databases.revert(migrations: CreateTodo(), on: app)
+            try await sql.raw("DROP SCHEMA \(ident: schema) CASCADE").run()
             await databases.shutdownAsync()
         } catch {
-            try? await databases.revert(migrations: CreateTodo(), on: app)
+            Issue.record("\(String(reflecting: error))")
+            try await sql.raw("DROP SCHEMA \(ident: schema) CASCADE").run()
             await databases.shutdownAsync()
             try? await app.shutdown()
             throw error
