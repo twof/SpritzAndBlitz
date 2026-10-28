@@ -2,28 +2,50 @@ import NIOSSL
 import FluentKit
 import FluentPostgresDriver
 import Vapor
-/// configures your application
-func configure(_ app: Application) async throws {
-    // uncomment to serve files from /Public folder
-    // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+import Configuration
 
+func defaultDatabasesConfig(configReader: ConfigReader) throws -> Databases {
     let databases = Databases(threadPool: .singleton, on: .singletonMultiThreadedEventLoopGroup)
+    
+    databases.use(
+        DatabaseConfigurationFactory.postgres(
+            configuration: .init(
+                hostname: configReader.string(forKey: "host", default: "localhost"),
+                port: configReader.int(forKey: "port", default: SQLPostgresConfiguration.ianaPortNumber),
+                username: configReader.string(forKey: "username", default: "vapor_username"),
+                password: configReader.string(forKey: "password", default: "vapor_password"),
+                database: configReader.string(forKey: "name", default: "vapor_database"),
+                tls: .prefer(try .init(configuration: .clientDefault))
+            )
+        ),
+        as: .psql
+    )
+    
+    return databases
+}
 
-    databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-        hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-        port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database",
-        tls: .prefer(try .init(configuration: .clientDefault)))
-    ), as: .psql)
-
+/// configures your application
+func configure(_ app: Application, configuredDatabases: Databases? = nil) async throws {
+    let configuredDatabases = try configuredDatabases ?? defaultDatabasesConfig(
+        configReader: app.configReader
+    )
     // close database connections cleanly on shutdown
-    app.addService(databases)
+    app.addService(configuredDatabases)
 
     // run migrations before the app boots
-    app.addLifecycleHandler(MigrateLifecycleHandler(databases: databases, migrations: CreateTodo()))
+    app.addLifecycleHandler(
+        MigrateLifecycleHandler(
+            databases: configuredDatabases,
+            migrations:
+                CreateUser(),
+                CreateUserTokens(),
+            CreateMatch(),
+            CreateRound(),
+            CreateUserMatch(),
+            CreateUserRoundScore()
+        )
+    )
 
     // register routes
-    try await routes(app, databases: databases)
+    try await routes(app, databases: configuredDatabases)
 }

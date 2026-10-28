@@ -11,5 +11,5 @@ func routes(_ app: Application, databases: Databases) async throws {
         "Hello, world!"
     }
 
-    try await app.register(collection: TodoController(databases: databases))
+    try await app.register(collection: UserAuthController(databases: databases))
 }

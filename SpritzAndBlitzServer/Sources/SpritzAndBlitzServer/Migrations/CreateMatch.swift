@@ -1,14 +1,14 @@
 import FluentKit
 
-struct CreateTodo: AsyncMigration {
+struct CreateMatch: AsyncMigration {
     func prepare(on database: any Database) async throws {
-        try await database.schema("todos")
+        try await database.schema("matches")
             .id()
-            .field("title", .string, .required)
+            .field("date", .datetime, .required)
             .create()
     }
 
     func revert(on database: any Database) async throws {
-        try await database.schema("todos").delete()
+        try await database.schema("matches").delete()
     }
 }
