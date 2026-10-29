@@ -42,7 +42,9 @@ func configure(_ app: Application, configuredDatabases: Databases? = nil) async 
             CreateMatch(),
             CreateRound(),
             CreateUserMatch(),
-            CreateUserRoundScore()
+            CreateUserRoundScore(),
+            CreateLobby(),
+            CreateUserLobby()
         )
     )
 
