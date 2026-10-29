@@ -25,6 +25,9 @@ final class User: Model, @unchecked Sendable {
     @Siblings(through: UserMatch.self, from: \.$user, to: \.$match)
     var matches: [Match]
     
+    @Siblings(through: UserLobby.self, from: \.$user, to: \.$lobby)
+    var lobbies: [Lobby]
+    
     @Children(for: \UserRoundScore.$user)
     var scores: [UserRoundScore]
     

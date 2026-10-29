@@ -31,4 +31,17 @@ final class Match: Model, @unchecked Sendable {
         self.id = id
         self.date = date
     }
+    
+    func totalScore() -> [String: Int] {
+        let rounds = self.$rounds.wrappedValue
+        var results = [String: Int]()
+        for round in rounds {
+            let scores = round.$scores.wrappedValue
+            for score in scores {
+                results[score.$user.name, default: 0] += score.score
+            }
+        }
+        
+        return results
+    }
 }

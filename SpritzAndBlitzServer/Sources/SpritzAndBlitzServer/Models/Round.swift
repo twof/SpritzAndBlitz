@@ -22,6 +22,9 @@ final class Round: Model, @unchecked Sendable {
     @Parent(key: "match_id")
     var match: Match
     
+    @Children(for: \UserRoundScore.$round)
+    var scores: [UserRoundScore]
+    
     init() { }
     
     init(id: UUID? = nil, date: Date, matchId: Match.IDValue) {
