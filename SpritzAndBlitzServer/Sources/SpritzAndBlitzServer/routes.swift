@@ -12,4 +12,8 @@ func routes(_ app: Application, databases: Databases) async throws {
     }
 
     try await app.register(collection: UserAuthController(databases: databases))
+    
+    let authedRoutes = try app.grouped(UserAuthenticator(database: databases.database()))
+    
+    try await authedRoutes.register(collection: LobbyController(databases: databases))
 }
