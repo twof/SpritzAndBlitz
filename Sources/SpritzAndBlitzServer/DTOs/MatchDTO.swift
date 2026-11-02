@@ -8,7 +8,9 @@ import Foundation
 #endif
 
 struct MatchDTO: Content {
+    let id: UUID
     let users: [UserMatchStatus]
+    let lastRound: [UserMatchStatus]
 }
 
 extension MatchDTO {

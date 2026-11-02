@@ -5,6 +5,7 @@ struct CreateMatch: AsyncMigration {
         try await database.schema("matches")
             .id()
             .field("date", .datetime, .required)
+            .field("is_complete", .bool, .required)
             .create()
     }
 

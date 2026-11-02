@@ -2,8 +2,6 @@ import FluentKit
 import HTTPTypes
 import RoutingKit
 import Vapor
-import Crypto
-import CryptoExtras
 
 #if canImport(FoundationEssentials)
 import FoundationEssentials
@@ -100,6 +98,10 @@ struct LobbyController: RouteCollection {
             // Create match
             let newMatch = Match(date: Date())
             try await newMatch.save(on: database)
+            
+            // Create the first round
+            let newRound = try Round(date: Date(), matchId: newMatch.requireID())
+            try await newRound.save(on: database)
             
             // Put all users from lobby into match
             let newUserMatches = try allUsers.map { user in
