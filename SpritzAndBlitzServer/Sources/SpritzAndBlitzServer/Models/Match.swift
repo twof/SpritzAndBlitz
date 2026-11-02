@@ -19,6 +19,9 @@ final class Match: Model, @unchecked Sendable {
     @Field(key: "date")
     var date: Date
     
+    @Field(key: "is_complete")
+    var isComplete: Bool
+    
     @Children(for: \Round.$match)
     var rounds: [Round]
     
@@ -30,6 +33,7 @@ final class Match: Model, @unchecked Sendable {
     init(id: UUID? = nil, date: Date) {
         self.id = id
         self.date = date
+        self.rounds = [Round()]
     }
     
     func totalScore() -> [String: Int] {
