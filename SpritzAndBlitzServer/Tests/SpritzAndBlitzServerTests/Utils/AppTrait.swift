@@ -8,16 +8,6 @@ import FluentPostgresDriver
 import Configuration
 import SystemPackage
 
-actor Counter {
-    var current = 8080
-    
-    func getCount() -> Int {
-        let current = current
-        self.current += 1
-        return current
-    }
-}
-
 @TaskLocal var _application: Application?
 
 var app: Application {
@@ -28,7 +18,6 @@ var app: Application {
 var database: any Database {
     get throws { try #require(_database) }
 }
-let counter = Counter()
 struct AppTrait: TestTrait, SuiteTrait, TestScoping {
     var isRecursive: Bool { true }
     
@@ -72,8 +61,6 @@ struct AppTrait: TestTrait, SuiteTrait, TestScoping {
         do {
             try await configure(app, configuredDatabases: databases)
             try await app.boot()
-//            app.serverConfiguration.port = await counter.getCount()
-//            try await app.run()
             try await $_database.withValue(try databases.database()) {
                 try await $_application.withValue(app) {
                     try await function()

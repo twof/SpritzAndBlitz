@@ -15,6 +15,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent-kit.git", from: "1.56.0"),
         // 🐘 Fluent driver for Postgres.
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.12.0"),
+        // 🤝 DTOs shared with the client.
+        .package(path: "../SpritzAndBlitzShared"),
     ],
     targets: [
         .executableTarget(
@@ -24,6 +26,7 @@ let package = Package(
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "ConsoleLogger", package: "console-kit"),
+                .product(name: "SpritzAndBlitzDTOs", package: "SpritzAndBlitzShared"),
             ],
             swiftSettings: swiftSettings
         ),
@@ -32,6 +35,7 @@ let package = Package(
             dependencies: [
                 .target(name: "SpritzAndBlitzServer"),
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "SpritzAndBlitzDTOs", package: "SpritzAndBlitzShared"),
             ],
             swiftSettings: swiftSettings
         )

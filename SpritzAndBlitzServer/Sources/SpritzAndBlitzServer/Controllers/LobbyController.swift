@@ -1,4 +1,5 @@
 import FluentKit
+import SpritzAndBlitzDTOs
 import HTTPTypes
 import RoutingKit
 import Vapor
@@ -17,11 +18,12 @@ struct LobbyController: RouteCollection {
     }
     
     func boot(routes: any RoutesBuilder) throws {
-        routes.post(use: createLobby(_:))
-        routes.post(":id", "join", use: joinLobby(_:))
-        routes.post(":id", "leave", use: leaveLobby(_:))
-        routes.post(":id", "ready", use: readyUp(_:))
-        routes.get(":id", "status", use: getLobbyStatus(_:))
+        let lobbyRoutes = routes.grouped("lobby")
+        lobbyRoutes.post(use: createLobby(_:))
+        lobbyRoutes.post(":id", "join", use: joinLobby(_:))
+        lobbyRoutes.post(":id", "leave", use: leaveLobby(_:))
+        lobbyRoutes.post(":id", "ready", use: readyUp(_:))
+        lobbyRoutes.get(":id", "status", use: getLobbyStatus(_:))
     }
     
     func createLobby(_ req: Request) async throws -> LobbyDTO {
@@ -46,7 +48,7 @@ struct LobbyController: RouteCollection {
         guard
             let lobbyId = req.parameters.get("id"),
             let lobbyUUID = UUID(uuidString: lobbyId)
-        else { throw Abort(.internalServerError) }
+        else { throw Abort(.badRequest) }
         
         // Ensure lobby exists
         let lobbyExists = try await Lobby
@@ -90,11 +92,13 @@ struct LobbyController: RouteCollection {
         guard
             let lobbyId = req.parameters.get("id"),
             let lobbyUUID = UUID(uuidString: lobbyId)
-        else { throw Abort(.internalServerError) }
+        else {
+            throw Abort(.internalServerError)
+        }
         
-        let allUsers = try await getUsersInLobby(lobbyId: lobbyUUID)
-        
-        try await databases.database().transaction { database in
+        return try await databases.database().transaction { database in
+            let allUsers = try await getUsersInLobby(lobbyId: lobbyUUID)
+            
             // Create match
             let newMatch = Match(date: Date())
             try await newMatch.save(on: database)
@@ -114,9 +118,14 @@ struct LobbyController: RouteCollection {
                 .query(on: databases.database())
                 .filter(\.$id == lobbyUUID)
                 .delete()
+            
+            return try MatchDTO(
+                id: newMatch.requireID(),
+                users: allUsers.map { .init(name: $0.name, score: 0) },
+                lastRound: nil,
+                winner: nil
+            )
         }
-        
-        return MatchDTO(users: allUsers.map { .init(name: $0.name, score: 0) })
     }
     
     func getLobbyStatus(_ req: Request) async throws -> LobbyDTO {
@@ -132,10 +141,10 @@ struct LobbyController: RouteCollection {
     }
     
     private func getUsersInLobby(lobbyId: UUID) async throws -> [User] {
-        let queryResult = try await UserLobby
+        try await User
             .query(on: databases.database())
-            .filter(\.$lobby.$id == lobbyId)
+            .join(UserLobby.self, on: \User.$id == \UserLobby.$user.$id)
+            .filter(UserLobby.self, \.$lobby.$id == lobbyId)
             .all()
-        return queryResult.map { $0.user }
     }
 }

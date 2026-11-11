@@ -6,7 +6,7 @@ struct CreateUserMatch: AsyncMigration {
             .id()
             .field("user_id", .uuid, .required, .references("users", "id", onDelete: .cascade))
             .foreignKey("user_id", references: "users", "id")
-            .field("match", .uuid, .required, .references("matches", "id", onDelete: .cascade))
+            .field("match_id", .uuid, .required, .references("matches", "id", onDelete: .cascade))
             .foreignKey("match_id", references: "matches", "id")
             .create()
     }

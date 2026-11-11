@@ -1,4 +1,5 @@
 import FluentKit
+import SpritzAndBlitzDTOs
 import Foundation
 
 #if canImport(FoundationEssentials)
@@ -18,7 +19,7 @@ final class Match: Model, @unchecked Sendable {
     
     @Field(key: "date")
     var date: Date
-    
+
     @Field(key: "is_complete")
     var isComplete: Bool
     
@@ -30,22 +31,25 @@ final class Match: Model, @unchecked Sendable {
     
     init() { }
     
-    init(id: UUID? = nil, date: Date) {
+    init(id: UUID? = nil, date: Date, isComplete: Bool = false) {
         self.id = id
         self.date = date
-        self.rounds = [Round()]
+        self.isComplete = isComplete
     }
     
-    func totalScore() -> [String: Int] {
-        let rounds = self.$rounds.wrappedValue
-        var results = [String: Int]()
-        for round in rounds {
-            let scores = round.$scores.wrappedValue
-            for score in scores {
-                results[score.$user.name, default: 0] += score.score
-            }
-        }
+    func totalScore(database: any Database) async throws -> [MatchDTO.UserMatchStatus] {
+        let users = try await $users.get(on: database)
+        let usersDict = users.reduce(into: [String: Int]()) { $0[$1.name] = 0 }
+        let scores = try await UserRoundScore.query(on: database)
+            .join(Round.self, on: \UserRoundScore.$round.$id == \Round.$id)
+            .join(User.self, on: \UserRoundScore.$user.$id == \User.$id)
+            .filter(Round.self, \.$match.$id == requireID())
+            .all()
+        let totalScores = try scores
+            .reduce(into: usersDict) { $0[try $1.joined(User.self).name, default: 0] += $1.score }
         
-        return results
+        return totalScores.map { key, value in
+            MatchDTO.UserMatchStatus(name: key, score: value)
+        }
     }
 }

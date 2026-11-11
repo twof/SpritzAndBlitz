@@ -1,4 +1,5 @@
 @testable import SpritzAndBlitzServer
+import SpritzAndBlitzDTOs
 import HTTPTypes
 import Testing
 import Vapor
@@ -14,10 +15,5 @@ struct SpritzAndBlitzServerTests {
             #expect(res.status == .ok)
             try #expect(await res.body.requireString() == "Hello, world!")
         }
-    }
-}
-extension UserDTO: Equatable {
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id && lhs.name == rhs.name
     }
 }

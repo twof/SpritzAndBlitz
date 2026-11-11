@@ -1,4 +1,5 @@
 @testable import SpritzAndBlitzServer
+import SpritzAndBlitzDTOs
 
 import HTTPTypes
 import Testing
@@ -15,7 +16,7 @@ struct AuthTests {
      - user
      */
     @Test("Test Signup Route")
-    func signup() async throws {
+    func signupWorks() async throws {
         let content = SignupDTO(name: "foo", password: "bar")
         
         try await app.testing { client in
@@ -116,7 +117,7 @@ struct AuthTests {
     
     @Test("User auth rejects unauthorized requests")
     func userAuthSadPath() async throws {
-        try await signup(username: "foo", password: "bar") {client, session in
+        try await signup(username: "foo", password: "bar") { client, session in
             let authenticator = try UserAuthenticator(database: database)
             let request = Request()
             try await authenticator
@@ -124,15 +125,80 @@ struct AuthTests {
             #expect(request.auth.get(User.self) == nil)
         }
     }
+}
+
+func signup(username: String, password: String, _ body: (any TestClient, LoginDTO) async throws -> Void) async throws {
+    let content = SignupDTO(name: username, password: password)
     
-    private func signup(username: String, password: String, _ body: (any TestClient, LoginDTO) async throws -> Void) async throws {
-        let content = SignupDTO(name: username, password: password)
-        
-        try await app.testing { client in
-            let res = try await client.post("signup", content: content)
-            let data = try #require(await res.body.data())
-            let session = try JSONDecoder().decode(LoginDTO.self, from: data)
-            try await body(client, session)
+    try await app.testing { client in
+        let res = try await client.post("signup", content: content)
+        let data = try #require(await res.body.data())
+        let session = try JSONDecoder().decode(LoginDTO.self, from: data)
+        try await body(client, session)
+    }
+}
+
+func authedUser(name: String = "alice") async throws -> (User, String) {
+    let user = User(name: name, password: "unused")   // skip hashing
+    try await user.save(on: database)
+    let raw = Data((0..<32).map { _ in UInt8.random(in: .min ... .max) })
+    let token = UserToken(
+        userId: try user.requireID(),
+        token: hashSessionToken(raw),
+        expiresAt: .now + 3600
+    )
+    try await token.save(on: database)
+    return (user, raw.base64EncodedString())
+}
+
+enum AuthInput {
+    case name(String)
+    case token(String)
+}
+
+extension TestClient {
+    func authedGet(
+        _ url: URI,
+        authInput: AuthInput,
+        headers: HTTPFields = [:],
+        beforeSend: (inout ClientRequest) throws -> Void = { _ in}
+    ) async throws -> ClientResponse {
+        var headers = headers
+        let token = switch authInput {
+        case let .name(name): try await authedUser(name: name).1
+        case let .token(token): token
         }
+        headers[.authorization] = "Bearer \(token)"
+        return try await get(url, headers: headers, beforeSend: beforeSend)
+    }
+    
+    func authedPost(
+        _ url: URI,
+        authInput: AuthInput,
+        headers: HTTPFields = [:],
+        beforeSend: (inout ClientRequest) throws -> Void = { _ in}
+    ) async throws -> ClientResponse {
+        var headers = headers
+        let token = switch authInput {
+        case let .name(name): try await authedUser(name: name).1
+        case let .token(token): token
+        }
+        headers[.authorization] = "Bearer \(token)"
+        return try await post(url, headers: headers, beforeSend: beforeSend)
+    }
+    
+    func authedPost<T>(
+        _ url: URI,
+        authInput: AuthInput,
+        content: T,
+        headers: HTTPFields = [:]
+    ) async throws -> ClientResponse where T: Content {
+        var headers = headers
+        let token = switch authInput {
+        case let .name(name): try await authedUser(name: name).1
+        case let .token(token): token
+        }
+        headers[.authorization] = "Bearer \(token)"
+        return try await post(url, headers: headers, content: content)
     }
 }

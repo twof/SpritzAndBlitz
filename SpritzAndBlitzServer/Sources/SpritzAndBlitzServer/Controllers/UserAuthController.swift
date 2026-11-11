@@ -1,4 +1,5 @@
 import FluentKit
+import SpritzAndBlitzDTOs
 import HTTPTypes
 import RoutingKit
 import Vapor
@@ -98,7 +99,7 @@ struct ScryptHash {
     }
     
     init(password: String, derivedFrom existing: ScryptHash? = nil) throws {
-        let rounds = existing?.rounds ?? 1 << 17
+        let rounds = existing?.rounds ?? 1 << 14
         let blockSize = existing?.blockSize ?? 8
         let parallelism = existing?.parallelism ?? 1
         let salt = existing?.salt ?? SymmetricKey(size: .bits128).withUnsafeBytes { Data($0) }

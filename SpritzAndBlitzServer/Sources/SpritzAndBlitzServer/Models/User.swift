@@ -1,4 +1,5 @@
 import FluentKit
+import SpritzAndBlitzDTOs
 
 #if canImport(FoundationEssentials)
 import struct FoundationEssentials.UUID

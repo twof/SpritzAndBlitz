@@ -2,7 +2,7 @@ import FluentKit
 
 struct CreateUserRoundScore: AsyncMigration {
     func prepare(on database: any Database) async throws {
-        try await database.schema("user_round_score")
+        try await database.schema("user_round_scores")
             .id()
             .field("round_id", .uuid, .required, .references("rounds", "id", onDelete: .cascade))
             .foreignKey("round_id", references: "rounds", "id")
@@ -14,6 +14,6 @@ struct CreateUserRoundScore: AsyncMigration {
     }
 
     func revert(on database: any Database) async throws {
-        try await database.schema("user_round_score").delete()
+        try await database.schema("user_round_scores").delete()
     }
 }

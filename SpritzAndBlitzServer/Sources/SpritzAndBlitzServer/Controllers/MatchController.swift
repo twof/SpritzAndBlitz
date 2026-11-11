@@ -1,4 +1,5 @@
 import FluentKit
+import SpritzAndBlitzDTOs
 import HTTPTypes
 import RoutingKit
 import Vapor
@@ -31,13 +32,14 @@ struct MatchController: RouteCollection {
             .sort(\.$date)
             .first()
         
-        guard let mostRecentUncompletedMatch else { throw Abort(.notFound) }
+        guard let mostRecentUncompletedMatch else {
+            throw Abort(.notFound)
+        }
         
-        return try matchDTO(model: mostRecentUncompletedMatch)
+        return try await mostRecentUncompletedMatch.matchDTO(database: databases.database())
     }
     
     func status(_ req: Request) async throws -> MatchDTO {
-        guard let user = req.auth.get(User.self) else { throw Abort(.unauthorized) }
         guard
             let matchId = req.parameters.get("id"),
             let matchUUID = UUID(uuidString: matchId)
@@ -46,7 +48,7 @@ struct MatchController: RouteCollection {
             throw Abort(.notFound)
         }
         
-        return try matchDTO(model: match)
+        return try await match.matchDTO(database: databases.database())
     }
     
     func score(_ req: Request) async throws -> MatchDTO {
@@ -63,8 +65,7 @@ struct MatchController: RouteCollection {
         // We expect a round to have been created when the match was created
         // We also expect a new round to be created upon completion of the previous round
         guard
-            let lastRoundId = match.lastRoundId(),
-            !match.lastRoundCompleted()
+            let lastRoundId = try await match.lastRoundId(database: databases.database())
         else {
             throw Abort(.internalServerError)
         }
@@ -77,16 +78,11 @@ struct MatchController: RouteCollection {
         )
         try await newScore.save(on: databases.database())
         
-        // Refetch match
-        guard let match = try await Match.find(matchUUID, on: databases.database()) else {
-            throw Abort(.notFound)
-        }
-        
-        if match.lastRoundCompleted() {
+        if try await match.isLastRoundCompleted(database: databases.database()) {
             // Check for completion of the match
-            let scores = match.totalScore()
+            let scores = try await match.totalScore(database: databases.database())
             
-            if scores.values.reduce(false, { $0 || $1 >= 75 }) {
+            if scores.winner() != nil {
                 match.isComplete = true
                 try await match.save(on: databases.database())
             } else {
@@ -95,42 +91,73 @@ struct MatchController: RouteCollection {
             }
         }
         
-        return try matchDTO(model: match)
-    }
-    
-    private func matchDTO(model: Match) throws -> MatchDTO {
-        let scores = model.totalScore()
-        let lastRound = model.lastRoundScores()
-        
-        return try MatchDTO(
-            id: model.requireID(),
-            users: scores.keys.map { MatchDTO.UserMatchStatus(name: $0, score: scores[$0]!) },
-            lastRound: lastRound.keys
-                .map { MatchDTO.UserMatchStatus(name: $0, score: lastRound[$0]!) }
-        )
+        return try await match.matchDTO(database: databases.database())
     }
 }
 
 extension Match {
-    func lastRoundCompleted() -> Bool {
-        let userCount = self.users.count
-        return lastRoundScores().count == userCount
+    func userCount(database: any Database) async throws -> Int {
+        try await self.$users.get(on: database).count
+    }
+    func matchDTO(database: any Database) async throws -> MatchDTO {
+        let scores = try await totalScore(database: database)
+        let lastRound = try await lastCompletedRound(database: database)
+        
+        return try MatchDTO(
+            id: requireID(),
+            users: scores,
+            lastRound: lastRound?.scores
+                .map { MatchDTO.UserMatchStatus(name: $0.user.name, score: $0.score) },
+            winner: scores.winner()
+        )
     }
     
-    func lastRoundId() -> UUID? {
-        return rounds.last?.id
+    func isLastRoundCompleted(database: any Database) async throws -> Bool {
+        let loadedLastRound = try await lastRound(database: database)
+        let userCount = try await userCount(database: database)
+        
+        return loadedLastRound.map { $0.scores.count == userCount } ?? true
     }
     
-    func lastRoundScores() -> [String: Int] {
-        var scores = [String: Int]()
-        guard let round  = self.rounds.last else {
-            return [:]
+    func lastRoundId(database: any Database) async throws -> UUID? {
+        try await $rounds.get(on: database).last?.id
+    }
+    
+    func lastRound(database: any Database) async throws -> Round? {
+        let rounds = try await self.$rounds.query(on: database)
+            .with(\.$scores) { $0.with(\.$user) }
+            .all()
+        
+        return rounds.sorted { left, right in
+            left.date < right.date
+        }.last
+    }
+    
+    func lastCompletedRound(database: any Database) async throws -> Round? {
+        let userCount = try await userCount(database: database)
+        let rounds = try await $rounds
+            .query(on: database)
+            .with(\.$scores) { $0.with(\.$user) }
+            .sort(\.$date)
+            .all()
+        
+        let lastCompleteRound = rounds.filter {
+            userCount == $0.scores.count
+        }.last
+        
+        return lastCompleteRound
+    }
+}
+
+extension Array where Element == MatchDTO.UserMatchStatus {
+    func winner() -> MatchDTO.UserMatchStatus? {
+        // TODO: Need to handle ties
+        guard let max = self.max(by: { left, right in
+            left.score < right.score
+        }) else {
+            return nil
         }
         
-        for score in round.scores {
-            scores[score.user.name] = score.score
-        }
-        
-        return scores
+        return max.score >= 75 ? max : nil
     }
 }

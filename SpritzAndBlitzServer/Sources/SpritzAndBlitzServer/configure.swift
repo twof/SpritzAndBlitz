@@ -10,11 +10,11 @@ func defaultDatabasesConfig(configReader: ConfigReader) throws -> Databases {
     databases.use(
         DatabaseConfigurationFactory.postgres(
             configuration: .init(
-                hostname: configReader.string(forKey: "host", default: "localhost"),
-                port: configReader.int(forKey: "port", default: SQLPostgresConfiguration.ianaPortNumber),
-                username: configReader.string(forKey: "username", default: "vapor_username"),
-                password: configReader.string(forKey: "password", default: "vapor_password"),
-                database: configReader.string(forKey: "name", default: "vapor_database"),
+                hostname: configReader.string(forKey: "DATABASE_HOST")!,
+                port: configReader.int(forKey: "DATABASE_PORT")!,
+                username: configReader.string(forKey: "DATABASE_USERNAME")!,
+                password: configReader.string(forKey: "DATABASE_PASSWORD")!,
+                database: configReader.string(forKey: "DATABASE_NAME"),
                 tls: .prefer(try .init(configuration: .clientDefault))
             )
         ),
@@ -37,14 +37,14 @@ func configure(_ app: Application, configuredDatabases: Databases? = nil) async 
         MigrateLifecycleHandler(
             databases: configuredDatabases,
             migrations:
+                CreateLobby(),
+                CreateMatch(),
+                CreateRound(),
                 CreateUser(),
+                CreateUserLobby(),
+                CreateUserMatch(),
+                CreateUserRoundScore(),
                 CreateUserTokens(),
-            CreateMatch(),
-            CreateRound(),
-            CreateUserMatch(),
-            CreateUserRoundScore(),
-            CreateLobby(),
-            CreateUserLobby()
         )
     )
 
