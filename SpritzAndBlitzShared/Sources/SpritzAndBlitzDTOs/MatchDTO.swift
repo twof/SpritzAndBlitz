@@ -6,20 +6,28 @@ public import Foundation
 
 public struct MatchDTO: Codable, Sendable, Equatable {
     public let id: UUID
-    public let users: [UserMatchStatus]
+    public let currentRound: [UserMatchStatus]
+    public let totals: [UserMatchStatus]
     public let lastRound: [UserMatchStatus]?
     public let winner: UserMatchStatus?
 
-    public init(id: UUID, users: [UserMatchStatus], lastRound: [UserMatchStatus]?, winner: UserMatchStatus?) {
+    public init(
+        id: UUID,
+        currentRound: [UserMatchStatus],
+        totals: [UserMatchStatus],
+        lastRound: [UserMatchStatus]?,
+        winner: UserMatchStatus?
+    ) {
         self.id = id
-        self.users = users
+        self.currentRound = currentRound
+        self.totals = totals
         self.lastRound = lastRound
         self.winner = winner
     }
 }
 
 extension MatchDTO {
-    public struct UserMatchStatus: Codable, Sendable, Equatable {
+    public struct UserMatchStatus: Codable, Sendable, Equatable, Hashable {
         public let name: String
         public let score: Int
 

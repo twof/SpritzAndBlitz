@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		5A1D7E0000000000000000B1 /* SpritzAndBlitzDTOs in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1D7E0000000000000000C1 /* SpritzAndBlitzDTOs */; };
+		6B2E8F0000000000000000B1 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6B2E8F0000000000000000C1 /* KeychainSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				5A1D7E0000000000000000B1 /* SpritzAndBlitzDTOs in Frameworks */,
+				6B2E8F0000000000000000B1 /* KeychainSwift in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -67,6 +69,7 @@
 			name = SpritzAndBlitzClient;
 			packageProductDependencies = (
 				5A1D7E0000000000000000C1 /* SpritzAndBlitzDTOs */,
+				6B2E8F0000000000000000C1 /* KeychainSwift */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* SpritzAndBlitzClient.app */;
@@ -98,6 +101,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5A1D7E0000000000000000A1 /* XCLocalSwiftPackageReference "../SpritzAndBlitzShared" */,
+				6B2E8F0000000000000000A1 /* XCRemoteSwiftPackageReference "keychain-swift" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -362,10 +366,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		6B2E8F0000000000000000A1 /* XCRemoteSwiftPackageReference "keychain-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/evgenyneu/keychain-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		5A1D7E0000000000000000C1 /* SpritzAndBlitzDTOs */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SpritzAndBlitzDTOs;
+		};
+		6B2E8F0000000000000000C1 /* KeychainSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6B2E8F0000000000000000A1 /* XCRemoteSwiftPackageReference "keychain-swift" */;
+			productName = KeychainSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

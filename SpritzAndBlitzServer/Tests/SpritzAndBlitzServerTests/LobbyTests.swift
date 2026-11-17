@@ -104,7 +104,7 @@ struct LobbyTests {
             )
             #expect(res.status == .ok)
             let content = try await res.content.decode(MatchDTO.self)
-            #expect(content.users.count == 3)
+            #expect(content.totals.count == 3)
             
             let statusRes = try await client.authedPost(
                 "lobby/\(lobby.requireID())/status",

@@ -1,34 +1,53 @@
 import SwiftUI
+import KeychainSwift
 
-enum Destinations: Hashable {
-    case registration
-    case userSelection
-}
+
 
 struct PrimaryView: View {
-    @State var navPath: [Destinations] = []
+    @State var navPath = NavigationPath()
+    let keychainManger = KeychainSwift()
     
     var body: some View {
         NavigationStack(path: $navPath) {
             VStack {
                 Text("Welcome to Spritz and Blitz!")
                 Button("New Player") {
-                    navPath.append(.registration)
+                    navPath.append(Destination.registration)
                 }
                 Button("Returning Player") {
-                    navPath.append(.userSelection)
+                    navPath.append(Destination.login)
                 }
             }
             .padding(20)
-            .navigationDestination(for: Destinations.self) { destination in
+            .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .registration:
-                    RegistrationView()
-                case .userSelection:
-                    UserSelectionView()
+                    RegistrationView(navPath: $navPath)
+                case .login:
+                    LoginView(navPath: $navPath)
+                case let .mainMenu(authedClient):
+                    MainMenuView(
+                        authedClient: authedClient,
+                        navPath: $navPath
+                    )
                 }
             }
+        }.task {
+            if let token = keychainManger.get("token"), let name = keychainManger.get("name") {
+                navPath.append(Destination.mainMenu(AuthedClient(
+                    sessionToken: token,
+                    playerName: name
+                )))
+            }
         }
+    }
+}
+
+extension PrimaryView {
+    enum Destination: Hashable {
+        case registration
+        case login
+        case mainMenu(AuthedClient)
     }
 }
 

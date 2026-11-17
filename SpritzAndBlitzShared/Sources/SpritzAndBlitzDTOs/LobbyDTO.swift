@@ -4,7 +4,7 @@ public import FoundationEssentials
 public import Foundation
 #endif
 
-public struct LobbyDTO: Codable, Sendable, Equatable {
+public struct LobbyDTO: Codable, Sendable, Equatable, Hashable {
     public let code: UUID
     public let users: [UserLobbyStatus]
 
@@ -15,7 +15,8 @@ public struct LobbyDTO: Codable, Sendable, Equatable {
 }
 
 extension LobbyDTO {
-    public struct UserLobbyStatus: Codable, Sendable, Equatable {
+    public struct UserLobbyStatus: Codable, Sendable, Equatable, Hashable, Identifiable {
+        public var id: String { name }
         public let name: String
 
         public init(name: String) {

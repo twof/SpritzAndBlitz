@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "SpritzAndBlitzServer",
     platforms: [
-       .macOS("26.2")
+       .macOS("26.2"),
+       .iOS("26.2")
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.

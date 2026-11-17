@@ -121,7 +121,8 @@ struct LobbyController: RouteCollection {
             
             return try MatchDTO(
                 id: newMatch.requireID(),
-                users: allUsers.map { .init(name: $0.name, score: 0) },
+                currentRound: [],
+                totals: allUsers.map { .init(name: $0.name, score: 0) },
                 lastRound: nil,
                 winner: nil
             )

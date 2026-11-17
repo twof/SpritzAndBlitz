@@ -20,9 +20,9 @@ struct MatchTests {
             )
             #expect(res.status == .ok)
             let matchDto = try await res.content.decode(MatchDTO.self)
-            #expect(matchDto.users.count == 3)
+            #expect(matchDto.totals.count == 3)
             #expect(matchDto.lastRound == nil)
-            #expect(matchDto.users.map { $0.score }.reduce(0, +) == 0)
+            #expect(matchDto.totals.map { $0.score }.reduce(0, +) == 0)
         }
     }
     
@@ -42,9 +42,9 @@ struct MatchTests {
             )
             #expect(statusRes.status == .ok)
             let statusMatchDto = try await res.content.decode(MatchDTO.self)
-            #expect(statusMatchDto.users.count == 3)
+            #expect(statusMatchDto.totals.count == 3)
             #expect(statusMatchDto.lastRound == nil)
-            #expect(statusMatchDto.users.map { $0.score }.reduce(0, +) == 0)
+            #expect(statusMatchDto.totals.map { $0.score }.reduce(0, +) == 0)
         }
     }
     
@@ -66,10 +66,10 @@ struct MatchTests {
             )
             #expect(scoreRes.status == .ok)
             let scoreMatchDto = try await scoreRes.content.decode(MatchDTO.self)
-            #expect(scoreMatchDto.users.count == 3)
+            #expect(scoreMatchDto.totals.count == 3)
             #expect(scoreMatchDto.lastRound == nil)
-            #expect(scoreMatchDto.users.map { $0.score }.reduce(0, +) == 10)
-            let fooScore = try #require(scoreMatchDto.users.first { $0.name == "foo" })
+            #expect(scoreMatchDto.totals.map { $0.score }.reduce(0, +) == 10)
+            let fooScore = try #require(scoreMatchDto.totals.first { $0.name == "foo" })
             #expect(fooScore.score == 10)
             
             let statusRes = try await client.authedGet(
@@ -78,10 +78,10 @@ struct MatchTests {
             )
             #expect(statusRes.status == .ok)
             let statusMatchDto = try await statusRes.content.decode(MatchDTO.self)
-            #expect(statusMatchDto.users.count == 3)
+            #expect(statusMatchDto.totals.count == 3)
             #expect(statusMatchDto.lastRound == nil)
-            #expect(statusMatchDto.users.map { $0.score }.reduce(0, +) == 10)
-            let fooStatusScore = try #require(statusMatchDto.users.first { $0.name == "foo" })
+            #expect(statusMatchDto.totals.map { $0.score }.reduce(0, +) == 10)
+            let fooStatusScore = try #require(statusMatchDto.totals.first { $0.name == "foo" })
             #expect(fooStatusScore.score == 10)
         }
     }
@@ -123,14 +123,14 @@ struct MatchTests {
             )
             #expect(statusRes.status == .ok)
             let statusMatchDto = try await statusRes.content.decode(MatchDTO.self)
-            #expect(statusMatchDto.users.count == 3)
+            #expect(statusMatchDto.totals.count == 3)
             #expect(statusMatchDto.lastRound == [
                 .init(name: "foo", score: 75),
                 .init(name: "alice", score: 10),
                 .init(name: "bar", score: 10)
             ])
-            #expect(statusMatchDto.users.map { $0.score }.reduce(0, +) == 95)
-            let fooStatusScore = try #require(statusMatchDto.users.first { $0.name == "foo" })
+            #expect(statusMatchDto.totals.map { $0.score }.reduce(0, +) == 95)
+            let fooStatusScore = try #require(statusMatchDto.totals.first { $0.name == "foo" })
             #expect(fooStatusScore.score == 75)
             #expect(statusMatchDto.winner == MatchDTO.UserMatchStatus(name: "foo", score: 75))
         }

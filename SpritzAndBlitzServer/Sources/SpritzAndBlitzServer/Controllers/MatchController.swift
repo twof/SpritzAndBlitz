@@ -70,6 +70,14 @@ struct MatchController: RouteCollection {
             throw Abort(.internalServerError)
         }
         
+        guard let lastRound = try await match.lastRound(database: databases.database()) else {
+            throw Abort(.internalServerError)
+        }
+        
+        guard !lastRound.scores.contains(where: { $0.user.name == user.name }) else {
+            throw Abort(.badRequest)
+        }
+        
         let newScore = try UserRoundScore(
             roundId: lastRoundId,
             userId: user.requireID(),
@@ -99,14 +107,21 @@ extension Match {
     func userCount(database: any Database) async throws -> Int {
         try await self.$users.get(on: database).count
     }
+    
     func matchDTO(database: any Database) async throws -> MatchDTO {
         let scores = try await totalScore(database: database)
-        let lastRound = try await lastCompletedRound(database: database)
+        let lastCompletedRound = try await lastCompletedRound(database: database)
+        let currentRoundScores = try await lastRound(database: database).map { round in
+            round.scores.map { score in
+                MatchDTO.UserMatchStatus(name: score.user.name, score: score.score)
+            }
+        }
         
         return try MatchDTO(
             id: requireID(),
-            users: scores,
-            lastRound: lastRound?.scores
+            currentRound: currentRoundScores ?? [],
+            totals: scores,
+            lastRound: lastCompletedRound?.scores
                 .map { MatchDTO.UserMatchStatus(name: $0.user.name, score: $0.score) },
             winner: scores.winner()
         )
@@ -151,12 +166,17 @@ extension Match {
 
 extension Array where Element == MatchDTO.UserMatchStatus {
     func winner() -> MatchDTO.UserMatchStatus? {
-        // TODO: Need to handle ties
-        guard let max = self.max(by: { left, right in
+        let sorted = self.sorted(by: { left, right in
             left.score < right.score
-        }) else {
-            return nil
-        }
+        })
+        let highestTwo = Array(sorted.suffix(2))
+        
+        let isTied = highestTwo.count == 2 && highestTwo[0] == highestTwo[1]
+        
+        // Game continues until there is no tie
+        if isTied { return nil }
+                
+        guard let max = highestTwo.last else { return nil }
         
         return max.score >= 75 ? max : nil
     }

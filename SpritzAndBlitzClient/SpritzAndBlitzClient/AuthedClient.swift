@@ -2,6 +2,7 @@ import Foundation
 
 struct AuthedClient: Equatable, Hashable {
     let sessionToken: String
+    let playerName: String
     
     func authedGet(
         _ url: URL,
@@ -15,7 +16,7 @@ struct AuthedClient: Equatable, Hashable {
             request.setValue(header.key, forHTTPHeaderField: header.value)
         }
         
-        request.setValue("authorization", forHTTPHeaderField: "Bearer \(sessionToken)")
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
         let (data, _) = try await URLSession.shared.data(for: request)
         
         return data
@@ -33,10 +34,11 @@ struct AuthedClient: Equatable, Hashable {
             request.setValue(header.key, forHTTPHeaderField: header.value)
         }
         
-        request.setValue("authorization", forHTTPHeaderField: "Bearer \(sessionToken)")
-        let (data, _) = try await URLSession.shared.data(
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
+        let (data, response) = try await URLSession.shared.data(
             for: request
         )
+        print(response)
         
         return data
     }
@@ -55,7 +57,7 @@ struct AuthedClient: Equatable, Hashable {
             request.setValue(header.key, forHTTPHeaderField: header.value)
         }
         
-        request.setValue("authorization", forHTTPHeaderField: "Bearer \(sessionToken)")
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
         request.httpBody = encodedUser
         let (data, _) = try await URLSession.shared.data(
             for: request
