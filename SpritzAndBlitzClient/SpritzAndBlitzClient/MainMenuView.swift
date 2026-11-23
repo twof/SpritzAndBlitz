@@ -8,6 +8,7 @@ struct MainMenuView: View {
     
     var body: some View {
         VStack {
+            // TODO: Rejoin
             Button("Create Lobby") {
                 Task {
                     do {

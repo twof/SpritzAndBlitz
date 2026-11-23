@@ -9,7 +9,7 @@ import FluentKit
 import Crypto
 import Foundation
 
-@Suite("Lobby Tests", .withApp())
+@Suite("Match Tests", .withApp())
 struct MatchTests {
     @Test func `get current match exists`() async throws {
         try await startLobby { client, match in

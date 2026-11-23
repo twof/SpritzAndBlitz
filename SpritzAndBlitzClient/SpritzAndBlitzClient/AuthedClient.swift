@@ -1,6 +1,6 @@
 import Foundation
 
-struct AuthedClient: Equatable, Hashable {
+struct AuthedClient: Equatable, Hashable, Sendable {
     let sessionToken: String
     let playerName: String
     

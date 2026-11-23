@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		5A1D7E0000000000000000B1 /* SpritzAndBlitzDTOs in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1D7E0000000000000000C1 /* SpritzAndBlitzDTOs */; };
 		6B2E8F0000000000000000B1 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6B2E8F0000000000000000C1 /* KeychainSwift */; };
+		7C3F900000000000000000B1 /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = 7C3F900000000000000000C1 /* Dependencies */; };
+		7C3F900000000000000000B2 /* DependenciesMacros in Frameworks */ = {isa = PBXBuildFile; productRef = 7C3F900000000000000000C2 /* DependenciesMacros */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +31,8 @@
 			files = (
 				5A1D7E0000000000000000B1 /* SpritzAndBlitzDTOs in Frameworks */,
 				6B2E8F0000000000000000B1 /* KeychainSwift in Frameworks */,
+				7C3F900000000000000000B1 /* Dependencies in Frameworks */,
+				7C3F900000000000000000B2 /* DependenciesMacros in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -70,6 +74,8 @@
 			packageProductDependencies = (
 				5A1D7E0000000000000000C1 /* SpritzAndBlitzDTOs */,
 				6B2E8F0000000000000000C1 /* KeychainSwift */,
+				7C3F900000000000000000C1 /* Dependencies */,
+				7C3F900000000000000000C2 /* DependenciesMacros */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* SpritzAndBlitzClient.app */;
@@ -102,6 +108,7 @@
 			packageReferences = (
 				5A1D7E0000000000000000A1 /* XCLocalSwiftPackageReference "../SpritzAndBlitzShared" */,
 				6B2E8F0000000000000000A1 /* XCRemoteSwiftPackageReference "keychain-swift" */,
+				7C3F900000000000000000A1 /* XCRemoteSwiftPackageReference "swift-dependencies" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -375,6 +382,14 @@
 				minimumVersion = 24.0.0;
 			};
 		};
+		7C3F900000000000000000A1 /* XCRemoteSwiftPackageReference "swift-dependencies" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-dependencies";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.17.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -386,6 +401,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6B2E8F0000000000000000A1 /* XCRemoteSwiftPackageReference "keychain-swift" */;
 			productName = KeychainSwift;
+		};
+		7C3F900000000000000000C1 /* Dependencies */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C3F900000000000000000A1 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = Dependencies;
+		};
+		7C3F900000000000000000C2 /* DependenciesMacros */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C3F900000000000000000A1 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = DependenciesMacros;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

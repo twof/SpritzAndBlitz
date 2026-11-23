@@ -116,9 +116,11 @@ extension Match {
                 MatchDTO.UserMatchStatus(name: score.user.name, score: score.score)
             }
         }
+        let roundCount = try await roundNumber(database: database)
         
         return try MatchDTO(
             id: requireID(),
+            roundNumber: roundCount,
             currentRound: currentRoundScores ?? [],
             totals: scores,
             lastRound: lastCompletedRound?.scores

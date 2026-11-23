@@ -4,8 +4,9 @@ public import FoundationEssentials
 public import Foundation
 #endif
 
-public struct MatchDTO: Codable, Sendable, Equatable {
+public struct MatchDTO: Codable, Sendable, Equatable, Hashable {
     public let id: UUID
+    public let roundNumber: Int
     public let currentRound: [UserMatchStatus]
     public let totals: [UserMatchStatus]
     public let lastRound: [UserMatchStatus]?
@@ -13,12 +14,14 @@ public struct MatchDTO: Codable, Sendable, Equatable {
 
     public init(
         id: UUID,
+        roundNumber: Int,
         currentRound: [UserMatchStatus],
         totals: [UserMatchStatus],
         lastRound: [UserMatchStatus]?,
         winner: UserMatchStatus?
     ) {
         self.id = id
+        self.roundNumber = roundNumber
         self.currentRound = currentRound
         self.totals = totals
         self.lastRound = lastRound

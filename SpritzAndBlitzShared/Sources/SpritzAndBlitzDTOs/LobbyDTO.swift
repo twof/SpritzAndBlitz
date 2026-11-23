@@ -7,10 +7,12 @@ public import Foundation
 public struct LobbyDTO: Codable, Sendable, Equatable, Hashable {
     public let code: UUID
     public let users: [UserLobbyStatus]
+    public let match: MatchDTO?
 
-    public init(code: UUID, users: [UserLobbyStatus]) {
+    public init(code: UUID, users: [UserLobbyStatus], match: MatchDTO?) {
         self.code = code
         self.users = users
+        self.match = match
     }
 }
 

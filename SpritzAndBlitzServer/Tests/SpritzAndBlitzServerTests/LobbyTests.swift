@@ -113,7 +113,15 @@ struct LobbyTests {
             #expect(statusRes.status == .notFound)
         }
     }
-    
+
+    @Test func `ready up without a token is unauthorized`() async throws {
+        try await formLobby { client, lobby in
+            let res = try await client.post("lobby/\(lobby.requireID())/ready")
+            #expect(res.status == .unauthorized)
+            #expect(try await Match.query(on: database).filter(\.$lobby.$id == lobby.requireID()).count() == 0)
+        }
+    }
+
     private func createLobby(callback: (any TestClient, Lobby) async throws -> Void) async throws {
         try await app.testing { client in
             let res = try await client.authedPost("lobby", authInput: .name("alice"))

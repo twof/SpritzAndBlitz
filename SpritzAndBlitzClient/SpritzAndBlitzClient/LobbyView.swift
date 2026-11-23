@@ -24,6 +24,7 @@ struct LobbyView: View {
         VStack {
             Text("Lobby ID: \(state.code.uuidString)")
                 .copyable([state.code.uuidString])
+                .textSelection(.enabled)
             
             ForEach(state.users) { player in
                 Text(player.name)
@@ -64,6 +65,12 @@ struct LobbyView: View {
                 do {
                     try await Task.sleep(for: .milliseconds(200))
                     self.state = try await getLobbyStatus()
+                    if let createdMatch = state.match {
+                        navPath.append(Destination.matchView(
+                            authedClient: authedClient,
+                            matchId: createdMatch.id
+                        ))
+                    }
                 } catch is CancellationError { }
                 catch {
                     print(error)
@@ -109,7 +116,7 @@ extension LobbyView {
             .init(name: "bar"),
             .init(name: "caitlin"),
             .init(name: "jeepers")
-        ]),
+        ], match: nil),
         navPath: $navPath
     )
 }

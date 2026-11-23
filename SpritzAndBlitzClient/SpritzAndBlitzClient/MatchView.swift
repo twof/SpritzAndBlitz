@@ -1,13 +1,18 @@
 import SwiftUI
 import SpritzAndBlitzDTOs
+import Dependencies
 
 struct MatchView: View {
     let authedClient: AuthedClient
     let matchId: UUID
     @Binding var navPath: NavigationPath
-    @State var round: String
     @State var state: State
     @State var task: Task<Void, Never>? = nil
+    @State var status: MatchDTO?
+    @ObservationIgnored
+    @Dependency(\.postScoreClient) var postScoreClient
+    @ObservationIgnored
+    @Dependency(\.getMatchStatusClient) var getMatchStatusClient
     
     let formatter: NumberFormatter = {
         let formatter = NumberFormatter()
@@ -19,35 +24,79 @@ struct MatchView: View {
         authedClient: AuthedClient,
         matchId: UUID,
         navPath: Binding<NavigationPath>,
-        round: String = "",
         state: State = State.scoring(score: 0, didBlitz: false),
+        status: MatchDTO? = nil,
         task: Task<Void, Never>? = nil
     ) {
         self.authedClient = authedClient
         self.matchId = matchId
         self._navPath = navPath
-        self.round = round
         self.state = state
+        self.status = status
         self.task = task
     }
     
     var body: some View {
         VStack {
-            Text("Round \(round)")
-            
-            switch state {
-            case let .scoring(score, didBlitz):
-                scoringView(score: score, didBlitz: didBlitz)
-            case let .waiting(match):
-                waiting(match: match)
+            scoreboard()
+            VStack {
+                Text("Round \(status?.roundNumber ?? 1)")
+                    .font(.title)
+                switch state {
+                case let .scoring(score, didBlitz):
+                    scoringView(score: score, didBlitz: didBlitz)
+                case let .waiting(match):
+                    waiting(match: match)
+                }
+                Spacer()
             }
+            .padding(.top, 50)
             
+            Spacer()
         }
         .padding(20)
         .navigationDestination(for: Destination.self) { destination in
             switch destination {
             case let .win(finalScore, winner):
-                WinnerView(winner: winner, scores: finalScore)
+                WinnerView(winner: winner, scores: finalScore, navPath: $navPath)
+            }
+        }
+    }
+    
+    func scoreboard() -> some View {
+        HStack {
+            VStack {
+                Text("Score Board")
+                    .font(.largeTitle)
+                    .padding(.bottom, 15)
+                ForEach(status?.totals ?? []) { score in
+                    Text("\(score.name): \(score.score)")
+                }
+            }
+//            Spacer()
+        }
+        .task {
+            do {
+                while !Task.isCancelled {
+                    try await Task.sleep(for: .milliseconds(200))
+                    
+                    self.status = try await getMatchStatusClient(authedClient, matchId)
+                }
+            } catch is CancellationError {}
+            catch {
+                print(error)
+            }
+        }
+        .onChange(of: status) { oldValue, newValue in
+            guard let status else { return }
+            if let winner = status.winner {
+                print("winner")
+                self.navPath
+                    .append(Destination.win(finalScore: status.totals, winner: winner))
+            } else if !status.currentRound.contains(where: { $0.name == authedClient.playerName }) {
+                self.state = .scoring(score: 0, didBlitz: false)
+            } else {
+                self.state = .waiting(match: status)
             }
         }
     }
@@ -82,15 +131,14 @@ struct MatchView: View {
             .padding()
             
             Button("Submit") {
-                let scoreModel = RoundScoreDTO(score: score, didBlitz: didBlitz)
-                let url = URL(string: "http://localhost:8080/match/\(matchId.uuidString)/score")!
-                
+                self.task?.cancel()
                 self.task = Task {
                     do {
-                        let data = try await authedClient.authedPost(url, content: scoreModel)
-                        let matchDto = try JSONDecoder().decode(MatchDTO.self, from: data)
+                        let scoreModel = RoundScoreDTO(score: score, didBlitz: didBlitz)
+                        let matchDto = try await postScoreClient(authedClient, matchId, scoreModel)
                         self.state = .waiting(match: matchDto)
-                    } catch {
+                    } catch is CancellationError {}
+                    catch {
                         print("error")
                     }
                 }
@@ -119,7 +167,16 @@ struct MatchView: View {
             currentRound[submittedScore.name] = .score(submittedScore.score)
         }
         
-        let playerScores = currentRound.map { PlayerScore(name: $0, score: $1) }
+        let playerScores = currentRound
+            .map { PlayerScore(name: $0, score: $1) }
+            .sorted { left, right in
+                switch (left.score, right.score) {
+                case (.waiting, .waiting): left.name > right.name
+                case (_, .waiting): true
+                case (.waiting, _): false
+                case (.score, .score): left.name > right.name
+                }
+            }
         
         return VStack {
             VStack(alignment: .leading, spacing: 10) {
@@ -133,26 +190,6 @@ struct MatchView: View {
                 }
             }
             .padding()
-        }
-        .task {
-            do {
-                while !Task.isCancelled {
-                    try await Task.sleep(for: .milliseconds(200))
-                    let data = try await authedClient
-                        .authedGet(URL(string: "http://localhost:8080/match/\(matchId)/status")!)
-                    let match = try JSONDecoder().decode(MatchDTO.self, from: data)
-                    if let winner = match.winner {
-                        self.navPath
-                            .append(Destination.win(finalScore: match.totals, winner: winner))
-                    } else if !match.currentRound.contains(where: { $0.name == authedClient.playerName }) {
-                        self.state = .scoring(score: 0, didBlitz: false)
-                    } else {
-                        self.state = .waiting(match: match)
-                    }
-                }
-            } catch {
-                print(error)
-            }
         }
     }
 }
@@ -170,11 +207,158 @@ extension MatchView {
 
 #Preview {
     @Previewable @State var navPath = NavigationPath()
-    MatchView(
-        authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
-        matchId: UUID(),
-        navPath: $navPath,
-        round: "1",
-        state: .scoring(score: 0, didBlitz: false)
-    )
+    withDependencies { dependencyValues in
+        dependencyValues.getMatchStatusClient = { _, _ in
+            .init(
+                id: UUID(),
+                roundNumber: 3,
+                currentRound: [],
+                totals: [
+                    .init(name: "foo", score: 10),
+                    .init(name: "bar", score: 20),
+                    .init(name: "Caitlin", score: 65),
+                    .init(name: "jeepers", score: 65)
+                ],
+                lastRound: nil,
+                winner: nil
+            )
+        }
+    } operation: {
+        MatchView(
+            authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
+            matchId: UUID(),
+            navPath: $navPath,
+            state: .scoring(score: 0, didBlitz: false),
+            status: .init(
+                id: UUID(),
+                roundNumber: 3,
+                currentRound: [],
+                totals: [
+                    .init(name: "foo", score: 10),
+                    .init(name: "bar", score: 20),
+                    .init(name: "Caitlin", score: 55),
+                    .init(name: "jeepers", score: 65)
+                ],
+                lastRound: nil,
+                winner: nil
+            )
+        )
+    }
+}
+
+#Preview {
+    @Previewable @State var navPath = NavigationPath()
+    withDependencies { dependencyValues in
+        dependencyValues.getMatchStatusClient = { _, _ in
+                .init(
+                    id: UUID(),
+                    roundNumber: 3,
+                    currentRound: [
+                        .init(name: "foo", score: 1),
+                        .init(name: "bar", score: 3),
+                        .init(name: "Caitlin", score: 16),
+                    ],
+                    totals: [
+                        .init(name: "foo", score: 10),
+                        .init(name: "bar", score: 20),
+                        .init(name: "Caitlin", score: 65),
+                        .init(name: "jeepers", score: 65)
+                    ],
+                    lastRound: nil,
+                    winner: nil
+                )
+        }
+    } operation: {
+        MatchView(
+            authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
+            matchId: UUID(),
+            navPath: $navPath,
+            state: .waiting(match: .init(
+                id: UUID(),
+                roundNumber: 3,
+                currentRound: [],
+                totals: [
+                    .init(name: "foo", score: 10),
+                    .init(name: "bar", score: 20),
+                    .init(name: "Caitlin", score: 55),
+//                    .init(name: "jeepers", score: 65)
+                ],
+                lastRound: nil,
+                winner: nil
+            )),
+            status: .init(
+                id: UUID(),
+                roundNumber: 3,
+                currentRound: [],
+                totals: [
+                    .init(name: "foo", score: 10),
+                    .init(name: "bar", score: 20),
+                    .init(name: "Caitlin", score: 55),
+                    .init(name: "jeepers", score: 65)
+                ],
+                lastRound: nil,
+                winner: nil
+            )
+        )
+    }
+}
+
+#Preview {
+    @Previewable @State var navPath = NavigationPath()
+    withDependencies { dependencyValues in
+        dependencyValues.getMatchStatusClient = { _, _ in
+                .init(
+                    id: UUID(),
+                    roundNumber: 3,
+                    currentRound: [
+                        .init(name: "foo", score: 1),
+                        .init(name: "bar", score: 3),
+                        .init(name: "Caitlin", score: 16),
+                        .init(name: "jeepers", score: 10)
+                    ],
+                    totals: [
+                        .init(name: "foo", score: 75),
+                        .init(name: "bar", score: 20),
+                        .init(name: "Caitlin", score: 65),
+                        .init(name: "jeepers", score: 65)
+                    ],
+                    lastRound: nil,
+                    winner: .init(name: "foo", score: 75)
+                )
+        }
+    } operation: {
+        NavigationStack(path: $navPath) {
+            MatchView(
+                authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
+                matchId: UUID(),
+                navPath: $navPath,
+                state: .waiting(match: .init(
+                    id: UUID(),
+                    roundNumber: 3,
+                    currentRound: [],
+                    totals: [
+                        .init(name: "foo", score: 10),
+                        .init(name: "bar", score: 20),
+                        .init(name: "Caitlin", score: 55),
+                        .init(name: "jeepers", score: 65)
+                    ],
+                    lastRound: nil,
+                    winner: nil
+                )),
+                status: .init(
+                    id: UUID(),
+                    roundNumber: 3,
+                    currentRound: [],
+                    totals: [
+                        .init(name: "foo", score: 10),
+                        .init(name: "bar", score: 20),
+                        .init(name: "Caitlin", score: 55),
+                        .init(name: "jeepers", score: 65)
+                    ],
+                    lastRound: nil,
+                    winner: .init(name: "foo", score: 75)
+                )
+            )
+        }
+    }
 }

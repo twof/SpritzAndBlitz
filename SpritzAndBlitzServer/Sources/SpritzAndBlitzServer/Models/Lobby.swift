@@ -22,10 +22,17 @@ final class Lobby: Model, @unchecked Sendable {
     @Siblings(through: UserLobby.self, from: \.$lobby, to: \.$user)
     var users: [User]
     
+    @OptionalChild(for: \.$lobby)
+    var match: Match?
+    
+    @Field(key: "is_closed")
+    var isClosed: Bool
+    
     init() { }
     
-    init(id: UUID? = nil, date: Date) {
+    init(id: UUID? = nil, date: Date, isClosed: Bool = false) {
         self.id = id
         self.date = date
+        self.isClosed = isClosed
     }
 }

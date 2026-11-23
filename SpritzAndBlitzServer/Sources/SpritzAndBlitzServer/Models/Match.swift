@@ -29,10 +29,14 @@ final class Match: Model, @unchecked Sendable {
     @Siblings(through: UserMatch.self, from: \.$match, to: \.$user)
     var users: [User]
     
+    @Parent(key: "lobby_id")
+    var lobby: Lobby
+    
     init() { }
     
-    init(id: UUID? = nil, date: Date, isComplete: Bool = false) {
+    init(id: UUID? = nil, lobbyId: Lobby.IDValue, date: Date, isComplete: Bool = false) {
         self.id = id
+        self.$lobby.id = lobbyId
         self.date = date
         self.isComplete = isComplete
     }
@@ -51,5 +55,9 @@ final class Match: Model, @unchecked Sendable {
         return totalScores.map { key, value in
             MatchDTO.UserMatchStatus(name: key, score: value)
         }
+    }
+    
+    func roundNumber(database: any Database) async throws -> Int {
+        try await $rounds.query(on: database).count()
     }
 }

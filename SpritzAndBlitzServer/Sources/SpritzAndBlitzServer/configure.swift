@@ -45,6 +45,8 @@ func configure(_ app: Application, configuredDatabases: Databases? = nil) async 
                 CreateUserMatch(),
                 CreateUserRoundScore(),
                 CreateUserTokens(),
+                AddIsClosedToLobby(),
+                AddMatchRelationToLobby()
         )
     )
 
