@@ -45,8 +45,8 @@ struct MatchView: View {
                 switch state {
                 case let .scoring(score, didBlitz):
                     scoringView(score: score, didBlitz: didBlitz)
-                case let .waiting(match):
-                    waiting(match: match)
+                case .waiting:
+                    waiting()
                 }
                 Spacer()
             }
@@ -76,27 +76,32 @@ struct MatchView: View {
 //            Spacer()
         }
         .task {
-            do {
-                while !Task.isCancelled {
-                    try await Task.sleep(for: .milliseconds(200))
-                    
-                    self.status = try await getMatchStatusClient(authedClient, matchId)
+            self.task?.cancel()
+            self.task = Task {
+                do {
+                    while !Task.isCancelled {
+                        try await Task.sleep(for: .milliseconds(200))
+                        try Task.checkCancellation()
+                        print("got status")
+                        self.status = try await getMatchStatusClient(authedClient, matchId)
+                    }
+                } catch is CancellationError {}
+                catch {
+                    print(error)
                 }
-            } catch is CancellationError {}
-            catch {
-                print(error)
             }
         }
         .onChange(of: status) { oldValue, newValue in
             guard let status else { return }
             if let winner = status.winner {
+                self.task?.cancel()
                 print("winner")
                 self.navPath
                     .append(Destination.win(finalScore: status.totals, winner: winner))
             } else if !status.currentRound.contains(where: { $0.name == authedClient.playerName }) {
                 self.state = .scoring(score: 0, didBlitz: false)
             } else {
-                self.state = .waiting(match: status)
+                self.state = .waiting
             }
         }
     }
@@ -136,7 +141,8 @@ struct MatchView: View {
                     do {
                         let scoreModel = RoundScoreDTO(score: score, didBlitz: didBlitz)
                         let matchDto = try await postScoreClient(authedClient, matchId, scoreModel)
-                        self.state = .waiting(match: matchDto)
+                        self.status = matchDto
+                        self.state = .waiting
                     } catch is CancellationError {}
                     catch {
                         print("error")
@@ -157,7 +163,15 @@ struct MatchView: View {
         let score: ScoreStatus
     }
     
-    fileprivate func waiting(match: MatchDTO) -> some View {
+    fileprivate func waiting() -> some View {
+        let match = status ?? MatchDTO(
+            id: UUID(),
+            roundNumber: 1,
+            currentRound: [],
+            totals: [],
+            lastRound: nil,
+            winner: nil
+        )
         let players = match.totals.map(\.name)
         var currentRound = players.reduce(into: [String: ScoreStatus]()) { partialResult, player in
             partialResult[player] = .waiting
@@ -201,7 +215,7 @@ extension MatchView {
     
     enum State {
         case scoring(score: Int, didBlitz: Bool)
-        case waiting(match: MatchDTO)
+        case waiting
     }
 }
 
@@ -273,32 +287,8 @@ extension MatchView {
             authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
             matchId: UUID(),
             navPath: $navPath,
-            state: .waiting(match: .init(
-                id: UUID(),
-                roundNumber: 3,
-                currentRound: [],
-                totals: [
-                    .init(name: "foo", score: 10),
-                    .init(name: "bar", score: 20),
-                    .init(name: "Caitlin", score: 55),
-//                    .init(name: "jeepers", score: 65)
-                ],
-                lastRound: nil,
-                winner: nil
-            )),
-            status: .init(
-                id: UUID(),
-                roundNumber: 3,
-                currentRound: [],
-                totals: [
-                    .init(name: "foo", score: 10),
-                    .init(name: "bar", score: 20),
-                    .init(name: "Caitlin", score: 55),
-                    .init(name: "jeepers", score: 65)
-                ],
-                lastRound: nil,
-                winner: nil
-            )
+            state: .waiting,
+            status: nil
         )
     }
 }
@@ -332,32 +322,7 @@ extension MatchView {
                 authedClient: AuthedClient(sessionToken: "foo", playerName: "foo"),
                 matchId: UUID(),
                 navPath: $navPath,
-                state: .waiting(match: .init(
-                    id: UUID(),
-                    roundNumber: 3,
-                    currentRound: [],
-                    totals: [
-                        .init(name: "foo", score: 10),
-                        .init(name: "bar", score: 20),
-                        .init(name: "Caitlin", score: 55),
-                        .init(name: "jeepers", score: 65)
-                    ],
-                    lastRound: nil,
-                    winner: nil
-                )),
-                status: .init(
-                    id: UUID(),
-                    roundNumber: 3,
-                    currentRound: [],
-                    totals: [
-                        .init(name: "foo", score: 10),
-                        .init(name: "bar", score: 20),
-                        .init(name: "Caitlin", score: 55),
-                        .init(name: "jeepers", score: 65)
-                    ],
-                    lastRound: nil,
-                    winner: .init(name: "foo", score: 75)
-                )
+                state: .waiting
             )
         }
     }
