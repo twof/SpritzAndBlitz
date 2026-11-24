@@ -1,45 +1,73 @@
 import SwiftUI
-import KeychainSwift
-
-
+import Dependencies
 
 struct PrimaryView: View {
     @State var navPath = NavigationPath()
-    let keychainManger = KeychainSwift()
+    @State var state: State
+    @ObservationIgnored
+    @Dependency(\.keychainClient) var keychainClient
+    @ObservationIgnored
+    @Dependency(\.getTokenIsValidClient) var tokenIsValidClient
     
     var body: some View {
         NavigationStack(path: $navPath) {
-            VStack {
-                Text("Welcome to Spritz and Blitz!")
-                Button("New Player") {
-                    navPath.append(Destination.registration)
+            switch state {
+            case .loading:
+                ProgressView().progressViewStyle(.circular)
+            case let .loggedIn(token, name):
+                MainMenuView(
+                    authedClient: AuthedClient(
+                        sessionToken: token,
+                        playerName: name
+                    ),
+                    navPath: $navPath
+                )
+            case .loggedOut:
+                VStack {
+                    Text("Welcome to Spritz and Blitz!")
+                    Button("New Player") {
+                        navPath.append(Destination.registration)
+                    }
+                    Button("Returning Player") {
+                        navPath.append(Destination.login)
+                    }
                 }
-                Button("Returning Player") {
-                    navPath.append(Destination.login)
+                .padding(20)
+                .navigationDestination(for: Destination.self) { destination in
+                    switch destination {
+                    case .registration:
+                        RegistrationView(navPath: $navPath)
+                    case .login:
+                        LoginView(navPath: $navPath)
+                    }
                 }
-            }
-            .padding(20)
-            .navigationDestination(for: Destination.self) { destination in
-                switch destination {
-                case .registration:
-                    RegistrationView(navPath: $navPath)
-                case .login:
-                    LoginView(navPath: $navPath)
-                case let .mainMenu(authedClient):
-                    MainMenuView(
-                        authedClient: authedClient,
-                        navPath: $navPath
-                    )
-                }
-            }
-        }.task {
-            if let token = keychainManger.get("token"), let name = keychainManger.get("name") {
-                navPath.append(Destination.mainMenu(AuthedClient(
-                    sessionToken: token,
-                    playerName: name
-                )))
             }
         }
+        .task {
+            do {
+                if let token = keychainClient.get("token"), let name = keychainClient.get("name") {
+                    let tokenIsValid = try await tokenIsValidClient(AuthedClient(sessionToken: token, playerName: name))
+                    if tokenIsValid {
+                        state = .loggedIn(token: token, name: name)
+                    } else {
+                        state = .loggedOut
+                    }
+                } else {
+                    state = .loggedOut
+                }
+            } catch {
+                state = .loggedOut
+                print(error)
+            }
+        }
+    }
+}
+
+extension PrimaryView {
+    enum State {
+        case loading
+        case loggedIn(token: String, name: String)
+        case loggedOut
     }
 }
 
@@ -47,11 +75,27 @@ extension PrimaryView {
     enum Destination: Hashable {
         case registration
         case login
-        case mainMenu(AuthedClient)
     }
 }
 
 #Preview {
-    PrimaryView()
+    withDependencies { dependencies in
+        dependencies.keychainClient.get = { key in
+            if key == "name" {
+                return "foo"
+            }
+            if key == "token" {
+                return "bar"
+            }
+            
+            return nil
+        }
+        
+        dependencies.getTokenIsValidClient = { authedClient in
+            return false
+        }
+    } operation: {
+        PrimaryView(state: .loading)
+    }
 }
 

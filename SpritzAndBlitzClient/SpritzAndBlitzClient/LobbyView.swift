@@ -86,17 +86,17 @@ struct LobbyView: View {
     }
     
     func getLobbyStatus() async throws -> LobbyDTO {
-        let data = try await authedClient.authedGet(URL(string:"http://localhost:8080/lobby/\(state.code)/status")!)
+        let data = try await authedClient.authedGet(API.url("lobby/\(state.code)/status"))
         return try JSONDecoder().decode(LobbyDTO.self, from: data)
     }
     
     func leaveLobby() async throws -> LobbyDTO {
-        let data = try await authedClient.authedPost(URL(string:"http://localhost:8080/lobby/\(state.code)/leave")!)
+        let data = try await authedClient.authedPost(API.url("lobby/\(state.code)/leave"))
         return try JSONDecoder().decode(LobbyDTO.self, from: data)
     }
     
     func startGame() async throws -> MatchDTO {
-        let data = try await authedClient.authedPost(URL(string:"http://localhost:8080/lobby/\(state.code)/ready")!)
+        let data = try await authedClient.authedPost(API.url("lobby/\(state.code)/ready"))
         return try JSONDecoder().decode(MatchDTO.self, from: data)
     }
 }

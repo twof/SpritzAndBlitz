@@ -22,6 +22,7 @@ struct UserAuthController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
         routes.post("signup", use: self.signup)
         routes.post("login", use: self.login)
+        routes.get("validate_token", use: self.validateToken)
     }
     
     func signup(_ req: Request) async throws -> LoginDTO {
@@ -61,6 +62,12 @@ struct UserAuthController: RouteCollection {
         let session = try await createNewSession(user: existingUser)
         
         return LoginDTO(sessionToken: session.sessionToken)
+    }
+    
+    func validateToken(_ req: Request) async throws -> HTTPResponse.Status {
+        try await UserAuthenticator(database: databases.database()).authenticate(request: req)
+
+        return req.auth.get(User.self) != nil ? .ok : .unauthorized
     }
     
     // the saved token is a symetric key which is SHA256 hashed, then base64 encoded to a string

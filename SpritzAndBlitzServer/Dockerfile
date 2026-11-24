@@ -1,7 +1,7 @@
 # ================================
 # Build image
 # ================================
-FROM swiftlang/swift:nightly-6.4.x-noble AS build
+FROM swift:6.4-noble AS build
 
 # Install OS updates
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -9,25 +9,31 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q dist-upgrade -y \
     && apt-get install -y libjemalloc-dev
 
-# Set up a build area
-WORKDIR /build
+# Build context is the monorepo root (see docker-compose.yml), so the
+# server can resolve its local dependency at ../SpritzAndBlitzShared.
+# Build manually with: docker build -f SpritzAndBlitzServer/Dockerfile .
+WORKDIR /build/SpritzAndBlitzServer
 
 # First just resolve dependencies.
 # This creates a cached layer that can be reused
 # as long as your Package.swift/Package.resolved
 # files do not change.
-COPY ./Package.* ./
-RUN swift package resolve \
-        $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
+COPY ./SpritzAndBlitzShared/Package.swift ../SpritzAndBlitzShared/
+COPY ./SpritzAndBlitzServer/Package.* ./
+# No --force-resolved-versions: Linux-only deps (e.g. OpenCombine via
+# combine-schedulers) are missing from the macOS-generated Package.resolved.
+# Existing pins are still honored.
+RUN swift package resolve
 
-# Copy entire repo into container
-COPY . .
+# Copy the shared package and the server into the container
+COPY ./SpritzAndBlitzShared ../SpritzAndBlitzShared
+COPY ./SpritzAndBlitzServer ./
 
 RUN mkdir /staging
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 # N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
-RUN --mount=type=cache,target=/build/.build \
+RUN --mount=type=cache,target=/build/SpritzAndBlitzServer/.build \
     swift build -c release \
         --product SpritzAndBlitzServer \
         --static-swift-stdlib \
@@ -46,8 +52,8 @@ RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 
 # Copy any resources from the public directory and views directory if the directories exist
 # Ensure that by default, neither the directory nor any of its contents are writable.
-RUN [ -d /build/Public ] && { mv /build/Public ./Public && chmod -R a-w ./Public; } || true
-RUN [ -d /build/Resources ] && { mv /build/Resources ./Resources && chmod -R a-w ./Resources; } || true
+RUN [ -d /build/SpritzAndBlitzServer/Public ] && { mv /build/SpritzAndBlitzServer/Public ./Public && chmod -R a-w ./Public; } || true
+RUN [ -d /build/SpritzAndBlitzServer/Resources ] && { mv /build/SpritzAndBlitzServer/Resources ./Resources && chmod -R a-w ./Resources; } || true
 
 # ================================
 # Run image
@@ -63,7 +69,7 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
       ca-certificates \
       tzdata \
 # If your app or its dependencies import FoundationNetworking, also install `libcurl4`.
-      # libcurl4 \
+      libcurl4 \
 # If your app or its dependencies import FoundationXML, also install `libxml2`.
       # libxml2 \
     && rm -r /var/lib/apt/lists/*

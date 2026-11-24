@@ -27,7 +27,9 @@ struct MigrateLifecycleHandler: LifecycleHandler {
             try await migrator.setupIfNeeded().get()
             try await migrator.prepareBatch().get()
         } catch {
-            Logger.current.warning("Couldn't run migrations", metadata: ["error": "\(error)"])
+            // Fail boot rather than serve on a broken schema.
+            Logger.current.critical("Couldn't run migrations", metadata: ["error": "\(error)"])
+            throw error
         }
     }
 }

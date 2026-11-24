@@ -13,8 +13,12 @@ enum Entrypoint {
             let filePath = FilePath(envPath)
             let config = try await ConfigReader(providers: [
                 CommandLineArgumentsProvider(),
+                // Real environment variables (Docker, Fly secrets) take precedence.
+                EnvironmentVariablesProvider(),
+                // Local dev .env; absent in deployed images.
                 EnvironmentVariablesProvider(
-                    environmentFilePath: filePath
+                    environmentFilePath: filePath,
+                    allowMissing: true
                 ),
             ])
             ConsoleLogger.bootstrapWithConfigReader(config: config)

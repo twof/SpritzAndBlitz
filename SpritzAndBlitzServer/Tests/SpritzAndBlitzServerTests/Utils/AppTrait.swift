@@ -18,6 +18,11 @@ var app: Application {
 var database: any Database {
     get throws { try #require(_database) }
 }
+@TaskLocal var _databases: Databases?
+
+var databases: Databases {
+    get throws { try #require(_databases) }
+}
 struct AppTrait: TestTrait, SuiteTrait, TestScoping {
     var isRecursive: Bool { true }
     
@@ -62,8 +67,10 @@ struct AppTrait: TestTrait, SuiteTrait, TestScoping {
             try await configure(app, configuredDatabases: databases)
             try await app.boot()
             try await $_database.withValue(try databases.database()) {
-                try await $_application.withValue(app) {
-                    try await function()
+                try await $_databases.withValue(databases) {
+                    try await $_application.withValue(app) {
+                        try await function()
+                    }
                 }
             }
             try await sql.raw("DROP SCHEMA \(ident: schema) CASCADE").run()

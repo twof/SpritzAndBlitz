@@ -7,7 +7,7 @@ struct AuthedClient: Equatable, Hashable, Sendable {
     func authedGet(
         _ url: URL,
         headers: [String: String] = [:]
-    ) async throws -> Data {
+    ) async throws(AuthedClientError) -> Data {
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "GET"
@@ -17,7 +17,20 @@ struct AuthedClient: Equatable, Hashable, Sendable {
         }
         
         request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw .urlSessionError(error)
+        }
+         
+        guard let response = response as? HTTPURLResponse else {
+            throw .unknownResponse
+        }
+        
+        if response.statusCode != 200 {
+            throw .urlStatus(response.statusCode)
+        }
         
         return data
     }
@@ -25,7 +38,7 @@ struct AuthedClient: Equatable, Hashable, Sendable {
     func authedPost(
         _ url: URL,
         headers: [String: String] = [:]
-    ) async throws -> Data {
+    ) async throws(AuthedClientError) -> Data {
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
@@ -35,10 +48,20 @@ struct AuthedClient: Equatable, Hashable, Sendable {
         }
         
         request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
-        let (data, response) = try await URLSession.shared.data(
-            for: request
-        )
-        print(response)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw .urlSessionError(error)
+        }
+        
+        guard let response = response as? HTTPURLResponse else {
+            throw .unknownResponse
+        }
+        
+        if response.statusCode != 200 {
+            throw .urlStatus(response.statusCode)
+        }
         
         return data
     }
@@ -47,8 +70,13 @@ struct AuthedClient: Equatable, Hashable, Sendable {
         _ url: URL,
         content: T,
         headers: [String: String] = [:]
-    ) async throws -> Data where T: Encodable {
-        let encodedUser = try JSONEncoder().encode(content)
+    ) async throws(AuthedClientError) -> Data where T: Encodable {
+        let encodedContent: Data
+        do {
+            encodedContent = try JSONEncoder().encode(content)
+        } catch {
+            throw .encoder(error)
+        }
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
@@ -58,11 +86,29 @@ struct AuthedClient: Equatable, Hashable, Sendable {
         }
         
         request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "authorization")
-        request.httpBody = encodedUser
-        let (data, _) = try await URLSession.shared.data(
-            for: request
-        )
+        request.httpBody = encodedContent
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw .urlSessionError(error)
+        }
+        
+        guard let response = response as? HTTPURLResponse else {
+            throw .unknownResponse
+        }
+        
+        if response.statusCode != 200 {
+            throw .urlStatus(response.statusCode)
+        }
         
         return data
+    }
+    
+    enum AuthedClientError: Error {
+        case unknownResponse
+        case urlSessionError(Error)
+        case urlStatus(Int)
+        case encoder(Error)
     }
 }
